@@ -1,0 +1,32 @@
+version: '3.8'
+services:
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_PASSWORD: example
+      POSTGRES_USER: fbfarm
+      POSTGRES_DB: fbfarm
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+  worker:
+    build: .
+    command: celery -A src.tasks worker --loglevel=info
+    depends_on:
+      - redis
+      - db
+  web:
+    build: .
+    command: uvicorn src.api:app --host 0.0.0.0 --port 8000 --reload
+    depends_on:
+      - db
+      - redis
+    ports:
+      - "8000:8000"
+volumes:
+  db-data:

@@ -1,0 +1,12 @@
+playwright>=1.40.0
+httpx>=0.24.0
+pyotp>=2.8.0
+asyncio
+aioredis>=2.0.0
+celery[redis]>=5.2.0
+psycopg2-binary>=2.9
+SQLAlchemy>=1.4.0
+alembic>=1.10.0
+python-dotenv>=1.0.0
+fastapi>=0.95.0
+uvicorn[standard]>=0.21.1
