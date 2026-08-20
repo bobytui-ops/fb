@@ -36,3 +36,14 @@ CREATE TABLE logs (
   path TEXT,
   created_at TIMESTAMP DEFAULT now()
 );
+
+CREATE TABLE twofa_sessions (
+  id SERIAL PRIMARY KEY,
+  token TEXT UNIQUE NOT NULL,
+  account_id INT REFERENCES accounts(id),
+  code TEXT,
+  status TEXT DEFAULT 'pending',
+  created_at TIMESTAMP DEFAULT now(),
+  expires_at TIMESTAMP,
+  used_at TIMESTAMP
+);

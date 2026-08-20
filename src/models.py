@@ -40,3 +40,14 @@ class Log(Base):
     log_type = Column(String)
     path = Column(Text)
     created_at = Column(TIMESTAMP, server_default=func.now())
+
+class TwoFASession(Base):
+    __tablename__ = 'twofa_sessions'
+    id = Column(Integer, primary_key=True)
+    token = Column(String, unique=True, index=True, nullable=False)
+    account_id = Column(Integer, ForeignKey('accounts.id'))
+    code = Column(String, nullable=True)
+    status = Column(String, default='pending')
+    created_at = Column(TIMESTAMP, server_default=func.now())
+    expires_at = Column(TIMESTAMP)
+    used_at = Column(TIMESTAMP)

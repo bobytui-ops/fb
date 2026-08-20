@@ -6,6 +6,9 @@ from pathlib import Path
 import pyotp
 from playwright.async_api import async_playwright
 from typing import Optional
+import time as _time
+
+from .twofa import create_twofa_session, get_twofa_status
 
 LOGS_DIR = Path("logs")
 LOGS_DIR.mkdir(exist_ok=True)
@@ -23,7 +26,7 @@ async def human_mouse_move(page, start, end, steps=10):
         await page.mouse.move(nx, ny)
         await asyncio.sleep(random.uniform(0.01, 0.05))
 
-async def connect_cdp_and_run(cdp_ws: str, cookies_path: Optional[str], proxy=None, twofa_secret: Optional[str]=None, account_login: Optional[str]=None, account_password: Optional[str]=None):
+async def connect_cdp_and_run(cdp_ws: str, cookies_path: Optional[str], proxy=None, twofa_secret: Optional[str]=None, account_login: Optional[str]=None, account_password: Optional[str]=None, account_id: Optional[int]=None):
     p = await async_playwright().start()
     browser = await p.chromium.connect_over_cdp(cdp_ws)
     context = await browser.new_context()
@@ -51,13 +54,42 @@ async def connect_cdp_and_run(cdp_ws: str, cookies_path: Optional[str], proxy=No
                 await asyncio.sleep(5)
                 # handle 2FA
                 if await page.query_selector("input[name='approvals_code']"):
-                    if twofa_secret:
-                        otp = pyotp.TOTP(twofa_secret).now()
-                        await human_type(page, "input[name='approvals_code']", otp)
-                        sub = await page.query_selector("button[type='submit']")
-                        if sub:
-                            await sub.click()
-                        await asyncio.sleep(5)
+                    # create 2FA session so user can input code manually via web
+                    if account_id:
+                        tf = create_twofa_session(account_id)
+                        token = tf['token']
+                        url = tf['url']
+                        print(f"2FA required for account {account_id}. Visit: {url}")
+                        # poll for code
+                        code = None
+                        timeout = 300
+                        interval = 3
+                        waited = 0
+                        while waited < timeout:
+                            s = get_twofa_status(token)
+                            if s and s.get('code'):
+                                code = s.get('code')
+                                break
+                            await asyncio.sleep(interval)
+                            waited += interval
+                        if code:
+                            await human_type(page, "input[name='approvals_code']", code)
+                            sub = await page.query_selector("button[type='submit']")
+                            if sub:
+                                await sub.click()
+                            await asyncio.sleep(5)
+                        else:
+                            # timeout waiting for user input
+                            raise Exception("2FA timeout waiting for user code")
+                    else:
+                        # fallback to TOTP if secret provided
+                        if twofa_secret:
+                            otp = pyotp.TOTP(twofa_secret).now()
+                            await human_type(page, "input[name='approvals_code']", otp)
+                            sub = await page.query_selector("button[type='submit']")
+                            if sub:
+                                await sub.click()
+                            await asyncio.sleep(5)
         # dump cookies and localStorage
         cookies = await context.cookies()
         sessions_dir = Path("sessions")
